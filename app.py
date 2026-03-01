@@ -44,7 +44,7 @@ def simulate_overtake(cd_no_drs, cd_drs, distance, gap):
     v1 = 0
     v2 = 0
 
-    x1 = gap  # lead car ahead
+    x1 = gap
     x2 = 0
 
     t = 0
@@ -53,13 +53,11 @@ def simulate_overtake(cd_no_drs, cd_drs, distance, gap):
     gaps = []
 
     while x2 < distance and x1 < distance + gap:
-        # Lead car
         drag1 = 0.5 * AIR_DENSITY * cd_no_drs * FRONTAL_AREA * v1**2
         a1 = (ENGINE_FORCE - drag1) / MASS
         v1 = max(v1 + a1 * DT, 0)
         x1 += v1 * DT
 
-        # Chasing car (DRS)
         drag2 = 0.5 * AIR_DENSITY * cd_drs * FRONTAL_AREA * v2**2
         a2 = (ENGINE_FORCE - drag2) / MASS
         v2 = max(v2 + a2 * DT, 0)
@@ -85,37 +83,38 @@ st.set_page_config(page_title="DRS Simulator", layout="centered")
 
 st.title("🏎️ DRS Effectiveness + Overtake Tool")
 
-# --- SIDEBAR ---
+# =========================
+# SIDEBAR
+# =========================
 st.sidebar.header("⚙️ Inputs")
 
-cd_display = st.sidebar.slider("Base Drag Co-efficient", 0.85, 1.20, 1.0, 0.01)
+# Cd slider (reversed)
+cd_display = st.sidebar.slider("Base Cd (Reversed)", 0.85, 1.20, 1.0, 0.01)
 cd_no_drs = 1.20 - (cd_display - 0.85)
 
-st.sidebar.markdown("Actual Drag Co-efficient Used")
+st.sidebar.markdown("Actual Drag Coefficient Used")
 st.sidebar.markdown(f"# {cd_no_drs:.2f}")
 
+# DRS %
 drs_reduction = st.sidebar.slider("DRS Effect (%)", 5, 20, 15)
 cd_drs = cd_no_drs * (1 - drs_reduction / 100)
 
 st.sidebar.markdown("Drag Coefficient with DRS")
 st.sidebar.markdown(f"# {cd_drs:.2f}")
 
+# Distance + Gap
 distance = st.sidebar.slider("Straight Length (m)", 200, 2000, 800, 50)
-
-# 🔥 NEW INPUT
 gap = st.sidebar.slider("Initial Gap (m)", 0, 50, 20)
 
 
 # =========================
-# RUN SIMS
+# RUN SIM
 # =========================
 t1, d1, v1 = simulate_run(cd_no_drs, distance)
 t2, d2, v2 = simulate_run(cd_drs, distance)
 
 time_saved = t1[-1] - t2[-1]
 efficiency = (time_saved / t1[-1]) * 100
-
-overtake, t_gap, gap_vals = simulate_overtake(cd_no_drs, cd_drs, distance, gap)
 
 
 # =========================
@@ -131,61 +130,77 @@ with col1:
 with col2:
     st.metric("Final Speed (DRS)", f"{v2[-1]*3.6:.1f} km/h")
 
-st.metric("⏱️ Time Saved", f"{time_saved:.4f} s")
-st.metric("📈 Efficiency Gain", f"{efficiency:.2f} %")
+col3, col4 = st.columns(2)
+
+with col3:
+    st.metric("⏱️ Time Saved", f"{time_saved:.4f} s")
+
+with col4:
+    st.metric("📈 Efficiency Gain", f"{efficiency:.2f} %")
 
 
 # =========================
-# GRAPH 1
+# 📊 COMPACT GRAPHS
 # =========================
-st.subheader("📉 Distance vs Time")
+st.subheader("📊 Performance Graphs")
 
-fig1, ax1 = plt.subplots()
-ax1.plot(t1, d1, label="No DRS")
-ax1.plot(t2, d2, label="DRS")
-ax1.set_xlabel("Time (s)")
-ax1.set_ylabel("Distance (m)")
-ax1.legend()
-ax1.grid()
+col1, col2 = st.columns(2)
 
-st.pyplot(fig1)
+# Distance vs Time
+with col1:
+    fig1, ax1 = plt.subplots(figsize=(4, 3))
+    ax1.plot(t1, d1, label="No DRS")
+    ax1.plot(t2, d2, label="DRS")
+    ax1.set_xlabel("Time (s)")
+    ax1.set_ylabel("Distance (m)")
+    ax1.set_title("Distance vs Time")
+    ax1.legend()
+    ax1.grid()
+    st.pyplot(fig1)
+
+# Speed vs Time
+with col2:
+    fig2, ax2 = plt.subplots(figsize=(4, 3))
+    ax2.plot(t1, v1 * 3.6, label="No DRS")
+    ax2.plot(t2, v2 * 3.6, label="DRS")
+    ax2.set_xlabel("Time (s)")
+    ax2.set_ylabel("Speed (km/h)")
+    ax2.set_title("Speed vs Time")
+    ax2.legend()
+    ax2.grid()
+    st.pyplot(fig2)
 
 
 # =========================
-# GRAPH 2
+# 🏁 OVERTAKE SECTION
 # =========================
-st.subheader("📈 Speed vs Time")
+col1, col2 = st.columns([6, 1])
 
-fig2, ax2 = plt.subplots()
-ax2.plot(t1, v1 * 3.6, label="No DRS")
-ax2.plot(t2, v2 * 3.6, label="DRS")
-ax2.set_xlabel("Time (s)")
-ax2.set_ylabel("Speed (km/h)")
-ax2.legend()
-ax2.grid()
+with col1:
+    st.subheader("🏁 Overtake Analysis")
 
-st.pyplot(fig2)
+with col2:
+    check = st.button("🔍 Check")
 
+if check:
+    overtake, t_gap, gap_vals = simulate_overtake(
+        cd_no_drs, cd_drs, distance, gap
+    )
 
-# =========================
-# 🔥 OVERTAKE GRAPH
-# =========================
-st.subheader("🏁 Overtake Analysis")
+    if overtake:
+        st.success("✅ OVERTAKE POSSIBLE")
+    else:
+        st.error("❌ OVERTAKE NOT POSSIBLE")
 
-if overtake:
-    st.success("✅ OVERTAKE POSSIBLE")
-else:
-    st.error("❌ OVERTAKE NOT POSSIBLE")
+    fig3, ax3 = plt.subplots()
+    ax3.plot(t_gap, gap_vals)
+    ax3.axhline(0, linestyle="--")
+    ax3.set_xlabel("Time (s)")
+    ax3.set_ylabel("Gap (m)")
+    ax3.set_title("Gap Closing (Lead - Chase)")
+    ax3.grid()
 
-fig3, ax3 = plt.subplots()
-ax3.plot(t_gap, gap_vals)
-ax3.axhline(0, linestyle="--")
-ax3.set_xlabel("Time (s)")
-ax3.set_ylabel("Gap (m)")
-ax3.set_title("Gap Closing (Lead - Chase)")
-ax3.grid()
-
-st.pyplot(fig3)
+    st.pyplot(fig3)
 
 
 # =========================

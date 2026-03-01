@@ -207,4 +207,4 @@ if check:
 # FOOTER
 # =========================
 st.markdown("---")
-st.markdown("Race Strategy Tool 🏎️")
+st.markdown("Here is the Racing tool. Developed by Kush Singh.")
